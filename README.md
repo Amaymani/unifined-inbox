@@ -90,6 +90,55 @@ npx prisma migrate deploy
 npm run dev
 ```
 
+## 🌐 Local Development with Ngrok (for Twilio Webhooks)
+
+Twilio’s inbound messages (SMS/WhatsApp) require a **public HTTPS endpoint**.  
+When running locally, you can expose your `localhost:3000` server using **[ngrok](https://ngrok.com)** — a secure tunneling tool that makes your local API temporarily accessible from the internet.
+
+---
+
+### ⚙️ **Setup Steps**
+
+1. **Install ngrok**
+   ```bash
+   npm install -g ngrok
+
+
+2. **Authenticate (first time only)**
+
+   ```bash
+   ngrok config add-authtoken <YOUR_AUTH_TOKEN>
+   ```
+
+3. **Expose your local Next.js server**
+
+   ```bash
+   ngrok http 3000
+   ```
+
+   You’ll see output like:
+
+   ```
+   Forwarding  https://a1b2c3d4e5.ngrok.io -> http://localhost:3000
+   ```
+
+4. **Copy the HTTPS URL**
+   Example: `https://a1b2c3d4e5.ngrok.io`
+
+5. **Set your Twilio Webhook URL**
+   In your [Twilio Console → Phone Numbers → Messaging settings](https://www.twilio.com/console/phone-numbers/incoming):
+
+   ```
+   When a message comes in → https://a1b2c3d4e5.ngrok.io/api/webhooks/twilio
+   ```
+
+6. **Test it!**
+
+   * Send an SMS or WhatsApp message to your Twilio number.
+   * You should see it appear instantly in your **Unified Inbox**.
+   * Logs will show inbound message events in your Next.js console.
+
+
 ### 4️⃣ Configure Twilio Webhook
 
 In the **Twilio Console**, set:
