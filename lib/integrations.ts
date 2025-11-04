@@ -1,37 +1,68 @@
+// lib/integrations.ts
 import twilio from "twilio";
 
-export type ChannelPayload = {
-  to: string;
-  from?: string;
-  body: string;
-  mediaUrl?: string;
-};
+const client = twilio(
+  process.env.TWILIO_ACCOUNT_SID!,
+  process.env.TWILIO_AUTH_TOKEN!
+);
 
-export function createSender(channel: "sms" | "whatsapp") {
-  if (channel === "sms" || channel === "whatsapp") {
-    const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
-
-    return {
-      send: async (payload: ChannelPayload) => {
+export function createSender(channel: string) {
+  return {
+    send: async (payload: {
+      to: string;
+      body?: string;
+      mediaUrl?: string;
+    }) => {
+      try {
         const formattedTo =
-          channel === "whatsapp" ? `whatsapp:${payload.to}` : payload.to;
+          channel === "whatsapp"
+            ? payload.to.startsWith("whatsapp:")
+              ? payload.to
+              : `whatsapp:${payload.to}`
+            : payload.to;
 
         const formattedFrom =
           channel === "whatsapp"
-            ? `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`
-            : process.env.TWILIO_SMS_NUMBER;
+            ? `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER!}`
+            : process.env.TWILIO_SMS_NUMBER!;
+
+        if (!formattedFrom) {
+          throw new Error(
+            "Missing TWILIO_SMS_NUMBER or TWILIO_WHATSAPP_NUMBER in env"
+          );
+        }
 
         const message = await client.messages.create({
           to: formattedTo,
-          from: formattedFrom,
+          from: formattedFrom, // ✅ This fixes 21603
           body: payload.body,
-          mediaUrl: payload.mediaUrl ? [payload.mediaUrl] : undefined,
+          ...(payload.mediaUrl ? { mediaUrl: [payload.mediaUrl] } : {}),
         });
 
+        console.log(`✅ Sent ${channel} message SID:`, message.sid);
         return message.sid;
-      },
-    };
-  }
+      }catch (err: any) {
+        // Twilio error code mapping
+        const code = err.code ?? "UNKNOWN";
+        const msg = err.message ?? "Unknown Twilio error";
 
-  throw new Error(`Unsupported channel: ${channel}`);
+        console.error(`❌ Twilio ${channel.toUpperCase()} send failed:`, {
+          code,
+          message: msg,
+          to: payload.to,
+          from:
+            channel === "whatsapp"
+              ? process.env.TWILIO_WHATSAPP_NUMBER
+              : process.env.TWILIO_SMS_NUMBER,
+        });
+        if (channel === "whatsapp" && code === 21603) {
+          console.warn(
+            "⚠️  Twilio error 21603: WhatsApp sender not enabled. Make sure the recipient joined your Twilio sandbox."
+          );
+        }
+
+        throw new Error(`Twilio Error ${code}: ${msg}`);
+      }
+    },
+  };
 }

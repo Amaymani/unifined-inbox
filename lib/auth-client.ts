@@ -16,4 +16,7 @@ const getBaseUrl = () => {
 
 export const authClient = createAuthClient({
   baseURL: getBaseUrl(),
+  fetchOptions: {
+    credentials: "include", 
+  },
 });

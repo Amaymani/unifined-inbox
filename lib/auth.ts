@@ -10,24 +10,25 @@ interface Credentials {
   name?: string;
 }
 
-
 export const auth = betterAuth({
+  secret: process.env.BETTER_AUTH_SECRET!,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
 
   emailAndPassword: {
     enabled: true,
 
     register: async ({ email, password, name }: Credentials) => {
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return { error: "User already exists" };
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) return { error: "User already exists" };
 
-  const newUser = await prisma.user.create({
-    data: { email, name },
-  });
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-  // ✅ Let BetterAuth handle password hashing and linking to Account
-  return { user: newUser };
-},
+      const newUser = await prisma.user.create({
+        data: { email, name, password: hashedPassword },
+      });
+
+      return { user: newUser };
+    },
 
     authorize: async ({ email, password }: Credentials) => {
       try {
@@ -51,6 +52,18 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+  },
+  cookies: {
+    sessionToken: {
+      name: "better-auth.session-token",
+      options: {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        path: "/",
+        domain: undefined
+      },
     },
   },
 

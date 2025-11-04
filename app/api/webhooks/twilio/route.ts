@@ -1,43 +1,42 @@
 // app/api/webhooks/twilio/route.ts
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+import { broadcast } from "@/lib/sse";
+
 export async function POST(req: Request) {
-  const form = await req.formData();
-  const fromRaw = form.get("From")?.toString();
-  const to = form.get("To")?.toString();
-  const body = form.get("Body")?.toString() ?? "";
-  const smsSid = form.get("SmsSid")?.toString() ?? form.get("MessageSid")?.toString();
-  const numMedia = Number(form.get("NumMedia")?.toString() ?? "0");
+  const rawBody = await req.text();
+  const form = new URLSearchParams(rawBody);
 
-  const isWhatsApp = !!fromRaw?.startsWith("whatsapp:");
-  const from = fromRaw?.replace("whatsapp:", "") ?? fromRaw;
+  const fromRaw = form.get("From") ?? "";
+  const to = form.get("To") ?? "";
+  const body = form.get("Body") ?? "";
+  const smsSid = form.get("SmsSid") ?? form.get("MessageSid");
+  const numMedia = Number(form.get("NumMedia") ?? "0");
 
+  const isWhatsApp = fromRaw.startsWith("whatsapp:");
+  const from = fromRaw.replace("whatsapp:", "");
   const channel = isWhatsApp ? "WHATSAPP" : "SMS";
 
-  // Upsert contact by phone
+  // ✅ Upsert contact
   const contact = await prisma.contact.upsert({
     where: { phone: from },
     update: { updatedAt: new Date() },
-    create: { phone: from, name: null },
+    create: { phone: from },
   });
 
-  // find or create thread for contact
-  let thread = await prisma.thread.findFirst({ where: { contactId: contact.id }});
-  if (!thread) {
-    thread = await prisma.thread.create({
-      data: { contactId: contact.id },
-    });
-  }
+  // ✅ Find or create thread
+  let thread =
+    (await prisma.thread.findFirst({ where: { contactId: contact.id } })) ??
+    (await prisma.thread.create({ data: { contactId: contact.id } }));
 
-  // handle media (if any)
+  // ✅ Handle media if present
   let mediaUrl: string | null = null;
   if (numMedia > 0) {
-    // Twilio provides MediaUrl0, MediaUrl1, ...
-    const media = form.get("MediaUrl0")?.toString();
-    if (media) mediaUrl = media;
+    const media = form.get("MediaUrl0");
+    if (media) mediaUrl = media.toString();
   }
 
+  // ✅ Create inbound message
   const message = await prisma.message.create({
     data: {
       threadId: thread.id,
@@ -45,13 +44,25 @@ export async function POST(req: Request) {
       channel,
       body,
       mediaUrl,
-      providerMsgId: smsSid,
+      providerMsgId: smsSid ?? undefined,
       from,
       to,
     },
   });
+  console.log("📤 New message saved:", message.id);
 
-  // Optionally: broadcast via websocket / socket.io to clients (not included here)
+  // ✅ STEP 2 — broadcast the new message to all SSE listeners
+  console.log("📡 Broadcasting new-message event...");
+  broadcast("new-message", {
+  id: message.id,
+  threadId: thread.id,
+  from,
+  to,
+  body,
+  channel,
+  direction: "INBOUND",
+  createdAt: message.createdAt,
+});
 
-  return NextResponse.json({ ok: true, messageId: message.id });
+  return new Response("OK", { status: 200 });
 }
