@@ -13,6 +13,7 @@ export async function middleware(req: NextRequest) {
     "/api/auth",
     "/api/health",
     "/api/webhooks/twilio",
+    "/"
   ];
 
   if (publicRoutes.some((route) => req.nextUrl.pathname.startsWith(route))) {

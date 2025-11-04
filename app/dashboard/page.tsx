@@ -19,7 +19,7 @@ export default function DashboardPage() {
     (async () => {
       const res = await authClient.getSession();
       console.log("Dashboard session:", res);
-      if (!res?.data?.user) router.push("/login?redirect=/dashboard");
+      if (!res?.data?.user) router.push("/login?redirect=/");
       else {
         setSession(res.data);
         setLoading(false);
