@@ -1,0 +1,165 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id              String     @id @default(cuid())
+  email           String     @unique
+  name            String?
+  avatar          String?
+  password        String?
+  role            Role       @default(VIEWER)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  emailVerified   Boolean    @default(false)
+  image           String?
+  sessions        Session[]
+  accounts        Account[]
+  messages        Message[]
+  notes           Note[]
+  teams           TeamUser[]
+  assignedThreads Thread[]   @relation("UserAssignedThreads")
+}
+
+
+
+model Team {
+  id        String     @id @default(cuid())
+  name      String
+  createdAt DateTime   @default(now())
+  members   TeamUser[]
+}
+
+model TeamUser {
+  id     String @id @default(cuid())
+  userId String
+  teamId String
+  role   Role   @default(EDITOR)
+  team   Team   @relation(fields: [teamId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  name       String?
+  phone      String?  @unique
+  email      String?  @unique
+  externalId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  notes      Note[]
+  threads    Thread[]
+}
+
+model Thread {
+  id           String       @id @default(cuid())
+  contactId    String
+  assignedToId String?
+  status       ThreadStatus @default(OPEN)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  messages     Message[]
+  notes        Note[]
+  assignedTo   User?        @relation("UserAssignedThreads", fields: [assignedToId], references: [id])
+  contact      Contact      @relation(fields: [contactId], references: [id])
+}
+
+model Message {
+  id            String    @id @default(cuid())
+  threadId      String
+  direction     Direction
+  channel       Channel
+  body          String?
+  mediaUrl      String?
+  providerMsgId String?
+  from          String?
+  to            String?
+  createdAt     DateTime  @default(now())
+  createdById   String?
+  createdBy     User?     @relation(fields: [createdById], references: [id])
+  thread        Thread    @relation(fields: [threadId], references: [id])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  threadId  String
+  authorId  String
+  content   String
+  contactId String?
+  isPrivate Boolean  @default(false)
+  createdAt DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id])
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  thread    Thread   @relation(fields: [threadId], references: [id])
+}
+
+enum Role {
+  VIEWER
+  EDITOR
+  ADMIN
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+}
+
+enum Channel {
+  SMS
+  WHATSAPP
+  EMAIL
+  TWITTER
+}
+
+enum ThreadStatus {
+  OPEN
+  CLOSED
+  SNOOZED
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+}
