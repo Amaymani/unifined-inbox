@@ -55,6 +55,7 @@ DIRECT_URL=postgresql://user:pass@host:5432/db
 BETTER_AUTH_SECRET=<string>
 BETTER_AUTH_URL=<ngrokurl>
 ```
+Create `.env.local` in the project root:
 ```env.local
 
 
