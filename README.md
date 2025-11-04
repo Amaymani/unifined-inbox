@@ -55,9 +55,8 @@ DIRECT_URL=postgresql://user:pass@host:5432/db
 BETTER_AUTH_SECRET=<string>
 BETTER_AUTH_URL=<ngrokurl>
 ```
-```.env.local
-# .env.local.example
-# Rename this file to `.env.local` and fill in real values.
+```env.local
+
 
 # ---------- DATABASE ----------
 # Pooled connection for Prisma at runtime
@@ -295,7 +294,7 @@ erDiagram
 
 ## 🧱 System Architecture
 
-```mermaid
+
 graph TD
 A[Next.js Frontend] -->|fetch| B[API Routes]
 B -->|ORM| C[Prisma + Supabase Postgres]
